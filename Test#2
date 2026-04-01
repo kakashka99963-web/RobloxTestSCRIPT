@@ -22,13 +22,10 @@ local xrayEnabled = false
 local aimbotEnabled = false
 local espColor = Color3.fromRGB(255, 0, 0)
 
--- ========== ESP (КАК В GOLDEN HUB - ТОЛЬКО КОНТУР) ==========
+-- ========== ESP (ТОЛЬКО КОНТУР) ==========
 local function updateESP()
-    -- Удаляем старые подсветки
     for player, hl in pairs(espHighlights) do
-        if hl and hl.Parent then
-            hl:Destroy()
-        end
+        if hl and hl.Parent then hl:Destroy() end
     end
     espHighlights = {}
     
@@ -40,7 +37,6 @@ local function updateESP()
             if char then
                 local hl = Instance.new("Highlight")
                 hl.Name = "WRANNE_ESP"
-                -- Заливка полностью прозрачная, только контур
                 hl.FillTransparency = 1
                 hl.OutlineColor = espColor
                 hl.OutlineTransparency = 0
@@ -52,9 +48,8 @@ local function updateESP()
     end
 end
 
--- ========== HITBOX EXPANDER (НЕВИДИМАЯ ЗОНА ПОРАЖЕНИЯ) ==========
+-- ========== HITBOX EXPANDER (НЕВИДИМАЯ ЗОНА) ==========
 local function updateHitbox()
-    -- Удаляем старые хитбоксы
     for _, data in pairs(hitboxParts) do
         if data.part then data.part:Destroy() end
         if data.connection then data.connection:Disconnect() end
@@ -69,25 +64,22 @@ local function updateHitbox()
             if char then
                 local rootPart = char:FindFirstChild("HumanoidRootPart")
                 if rootPart then
-                    -- Создаём НЕВИДИМУЮ часть-хитбокс
                     local hitboxPart = Instance.new("Part")
                     hitboxPart.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
-                    hitboxPart.Transparency = 1  -- полностью невидимая
+                    hitboxPart.Transparency = 1
                     hitboxPart.CanCollide = false
                     hitboxPart.Anchored = false
                     hitboxPart.Name = "WRANNE_Hitbox"
                     hitboxPart.Parent = char
                     
-                    -- Привязываем к персонажу
                     local weld = Instance.new("Weld")
                     weld.Part0 = rootPart
                     weld.Part1 = hitboxPart
                     weld.C0 = CFrame.new(0, 0, 0)
                     weld.Parent = hitboxPart
                     
-                    table.insert(hitboxParts, {part = hitboxPart, player = otherPlayer})
+                    table.insert(hitboxParts, {part = hitboxPart})
                     
-                    -- Следим за перерождением
                     local conn = otherPlayer.CharacterAdded:Connect(function(newChar)
                         task.wait(0.5)
                         if hitboxEnabled then
@@ -106,7 +98,7 @@ local function updateHitbox()
                                 newWeld.C0 = CFrame.new(0, 0, 0)
                                 newWeld.Parent = newHitbox
                                 
-                                table.insert(hitboxParts, {part = newHitbox, player = otherPlayer})
+                                table.insert(hitboxParts, {part = newHitbox})
                             end
                         end
                     end)
@@ -128,7 +120,7 @@ local function setHitboxSize(size)
     end
 end
 
--- ========== X-RAY VISION ==========
+-- ========== X-RAY ==========
 local function updateXRay()
     for _, part in pairs(workspace:GetDescendants()) do
         if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" and part.Name ~= "WRANNE_Hitbox" then
@@ -151,7 +143,7 @@ local function updateXRay()
     end
 end
 
--- ========== ФУНКЦИИ ДЛЯ ПЕРСОНАЖА ==========
+-- ========== ФУНКЦИИ ==========
 local function setSpeed(speed)
     walkSpeed = speed
     local char = localPlayer.Character
@@ -160,7 +152,6 @@ local function setSpeed(speed)
     end
 end
 
--- ========== FLY ==========
 local function toggleFly()
     local char = localPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
@@ -188,7 +179,6 @@ local function toggleFly()
     end
 end
 
--- ========== NOCLIP ==========
 local noclipConn = nil
 local function toggleNoclip()
     if noclipConn then noclipConn:Disconnect() end
@@ -196,16 +186,15 @@ local function toggleNoclip()
         noclipConn = RunService.Stepped:Connect(function()
             if localPlayer.Character then
                 for _, part in ipairs(localPlayer.Character:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
-                    end
+                    if part:IsA("BasePart") then part.CanCollide = false end
                 end
             end
         end)
     end
 end
 
--- ========== Aimbot ==========
+-- ========== AIMBOT ==========
+local aimbotEnabled = false
 local Aimbot = { Radius = 120, TargetPart = "Head" }
 
 RunService.RenderStepped:Connect(function()
@@ -234,7 +223,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- ========== ОБНОВЛЕНИЕ ПРИ НОВОМ РАУНДЕ ==========
+-- ========== ОБНОВЛЕНИЕ ПРИ РАУНДЕ ==========
 local function onCharacterAdded()
     task.wait(0.5)
     setSpeed(walkSpeed)
@@ -247,7 +236,6 @@ end
 
 localPlayer.CharacterAdded:Connect(onCharacterAdded)
 
--- Обновление при добавлении/удалении игроков
 Players.PlayerAdded:Connect(function(player)
     task.wait(0.5)
     if espEnabled then updateESP() end
@@ -265,7 +253,7 @@ end)
 local Window = Rayfield:CreateWindow({
     Name = "WRANNE",
     LoadingTitle = "WRANNE Loading...",
-    LoadingSubtitle = "by WranneScripts",  -- ← ИЗМЕНЕНО!
+    LoadingSubtitle = "by WranneScripts",
     ConfigurationSaving = { Enabled = true, FolderName = nil, FileName = "WRANNEConfig" },
     Discord = { Enabled = false },
     KeySystem = false
@@ -366,7 +354,7 @@ VisualsTab:CreateColorPicker({
     end
 })
 
--- Hitbox Expander
+-- Hitbox Expander (ON / OFF)
 VisualsTab:CreateToggle({
     Name = "Hitbox Expander (ON / OFF)",
     CurrentValue = false,
@@ -377,15 +365,19 @@ VisualsTab:CreateToggle({
     end
 })
 
-VisualsTab:CreateSlider({
+-- Hitbox Size (ПОЛЕ ДЛЯ ВВОДА, как в GOLDEN HUB)
+VisualsTab:CreateInput({
     Name = "Hitbox Size",
-    Range = {1, 1000},
-    Increment = 1,
-    Suffix = "Size",
-    CurrentValue = 4,
+    CurrentValue = "4",
+    PlaceholderText = "Enter size (1-1000)",
     Flag = "Hitbox_Size",
     Callback = function(Value)
-        setHitboxSize(Value)
+        local num = tonumber(Value)
+        if num and num >= 1 and num <= 1000 then
+            setHitboxSize(num)
+        else
+            Rayfield:Notify({Title = "Error", Content = "Please enter a number between 1 and 1000!"})
+        end
     end
 })
 
