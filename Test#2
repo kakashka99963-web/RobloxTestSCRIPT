@@ -48,7 +48,8 @@ local function updateESP()
     end
 end
 
--- ========== HITBOX EXPANDER (СФЕРА, А НЕ КУБ) ==========
+-- ========== HITBOX EXPANDER (ДЛЯ MURDERERS VS SHERIFFS DUELS) ==========
+-- В этой игре нет HumanoidRootPart, используем UpperTorso или LowerTorso
 local function updateHitbox()
     -- Удаляем старые хитбоксы
     for _, data in pairs(hitboxParts) do
@@ -63,16 +64,15 @@ local function updateHitbox()
         if otherPlayer ~= localPlayer then
             local char = otherPlayer.Character
             if char then
-                -- Ищем часть тела для привязки
-                local attachPart = char:FindFirstChild("HumanoidRootPart") or 
-                                   char:FindFirstChild("UpperTorso") or 
+                -- Ищем часть тела, к которой прикрепить хитбокс
+                local attachPart = char:FindFirstChild("UpperTorso") or 
                                    char:FindFirstChild("LowerTorso") or 
-                                   char:FindFirstChild("Torso")
+                                   char:FindFirstChild("Torso") or
+                                   char:FindFirstChild("HumanoidRootPart")
                 
                 if attachPart then
-                    -- СОЗДАЁМ СФЕРУ (Ball) вместо куба
+                    -- Создаём невидимую часть-хитбокс
                     local hitboxPart = Instance.new("Part")
-                    hitboxPart.Shape = Enum.PartType.Ball  -- ← ГЛАВНОЕ! СФЕРА!
                     hitboxPart.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
                     hitboxPart.Transparency = 1  -- полностью невидимая
                     hitboxPart.CanCollide = false
@@ -93,13 +93,12 @@ local function updateHitbox()
                     local conn = otherPlayer.CharacterAdded:Connect(function(newChar)
                         task.wait(0.5)
                         if hitboxEnabled then
-                            local newAttach = newChar:FindFirstChild("HumanoidRootPart") or 
-                                              newChar:FindFirstChild("UpperTorso") or 
+                            local newAttach = newChar:FindFirstChild("UpperTorso") or 
                                               newChar:FindFirstChild("LowerTorso") or 
-                                              newChar:FindFirstChild("Torso")
+                                              newChar:FindFirstChild("Torso") or
+                                              newChar:FindFirstChild("HumanoidRootPart")
                             if newAttach then
                                 local newHitbox = Instance.new("Part")
-                                newHitbox.Shape = Enum.PartType.Ball  -- СФЕРА
                                 newHitbox.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
                                 newHitbox.Transparency = 1
                                 newHitbox.CanCollide = false
@@ -137,7 +136,8 @@ end
 -- ========== X-RAY ==========
 local function updateXRay()
     for _, part in pairs(workspace:GetDescendants()) do
-        if part:IsA("BasePart") and part.Name ~= "WRANNE_Hitbox" then
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" and part.Name ~= "WRANNE_Hitbox" 
+           and part.Name ~= "UpperTorso" and part.Name ~= "LowerTorso" and part.Name ~= "Torso" then
             if xrayEnabled then
                 if not part:GetAttribute("OriginalMaterial") then
                     part:SetAttribute("OriginalMaterial", part.Material)
