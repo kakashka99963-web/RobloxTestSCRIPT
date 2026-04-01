@@ -1,458 +1,264 @@
---[[
-    WRANNE HUB
-    Исправленный Hitbox Expander (увеличивает невидимую зону поражения)
-]]
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
-local player = game.Players.LocalPlayer
-local mouse = player:GetMouse()
-
--- ========== НАСТРОЙКИ ==========
-local openKey = "Insert"
-local menuVisible = true
-local dragging = false
-local dragStart = nil
-local dragStartPos = nil
-
--- ========== СОЗДАНИЕ GUI ==========
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "WRANNE_HUB"
-screenGui.Parent = player:WaitForChild("PlayerGui")
-screenGui.ResetOnSpawn = false
-
--- Главное окно
-local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 500, 0, 520)
-mainFrame.Position = UDim2.new(0.5, -250, 0.5, -260)
-mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-mainFrame.BorderSizePixel = 0
-mainFrame.ClipsDescendants = true
-mainFrame.Parent = screenGui
-mainFrame.Visible = menuVisible
-
--- Заголовок
-local titleBar = Instance.new("Frame")
-titleBar.Size = UDim2.new(1, 0, 0, 45)
-titleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
-titleBar.BorderSizePixel = 0
-titleBar.Parent = mainFrame
-
-local titleText = Instance.new("TextLabel")
-titleText.Size = UDim2.new(1, -45, 1, 0)
-titleText.Position = UDim2.new(0, 15, 0, 0)
-titleText.Text = "WRANNE HUB"
-titleText.TextColor3 = Color3.fromRGB(255, 200, 100)
-titleText.TextXAlignment = Enum.TextXAlignment.Left
-titleText.BackgroundTransparency = 1
-titleText.Font = Enum.Font.GothamBold
-titleText.TextSize = 20
-titleText.Parent = titleBar
-
--- Кнопка закрытия
-local closeBtn = Instance.new("TextButton")
-closeBtn.Size = UDim2.new(0, 40, 1, 0)
-closeBtn.Position = UDim2.new(1, -40, 0, 0)
-closeBtn.Text = "X"
-closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-closeBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
-closeBtn.BorderSizePixel = 0
-closeBtn.Font = Enum.Font.GothamBold
-closeBtn.TextSize = 18
-closeBtn.Parent = titleBar
-
--- Панель вкладок
-local tabBar = Instance.new("Frame")
-tabBar.Size = UDim2.new(1, 0, 0, 50)
-tabBar.Position = UDim2.new(0, 0, 0, 45)
-tabBar.BackgroundColor3 = Color3.fromRGB(25, 25, 40)
-tabBar.BorderSizePixel = 0
-tabBar.Parent = mainFrame
-
--- Контейнер для содержимого
-local contentContainer = Instance.new("ScrollingFrame")
-contentContainer.Size = UDim2.new(1, 0, 1, -95)
-contentContainer.Position = UDim2.new(0, 0, 0, 95)
-contentContainer.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-contentContainer.BorderSizePixel = 0
-contentContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
-contentContainer.ScrollBarThickness = 8
-contentContainer.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 120)
-contentContainer.Parent = mainFrame
-
--- ========== ВКЛАДКИ ==========
-local tabs = {"Main", "Misc"}
-local activeTab = "Main"
-local tabButtons = {}
-
-for i, tabName in ipairs(tabs) do
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 100, 1, 0)
-    btn.Position = UDim2.new(0, (i-1)*100, 0, 0)
-    btn.Text = tabName
-    btn.TextColor3 = Color3.fromRGB(220, 220, 220)
-    btn.BackgroundColor3 = tabName == "Main" and Color3.fromRGB(60, 60, 90) or Color3.fromRGB(35, 35, 55)
-    btn.BorderSizePixel = 0
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 15
-    btn.Parent = tabBar
-    
-    btn.MouseButton1Click:Connect(function()
-        activeTab = tabName
-        for _, b in pairs(tabButtons) do
-            b.BackgroundColor3 = b.Text == tabName and Color3.fromRGB(60, 60, 90) or Color3.fromRGB(35, 35, 55)
-        end
-        updateContentVisibility()
-    end)
-    
-    table.insert(tabButtons, btn)
-end
-
-local function updateContentVisibility()
-    for _, child in pairs(contentContainer:GetChildren()) do
-        if child:GetAttribute("Tab") then
-            child.Visible = child:GetAttribute("Tab") == activeTab
-        end
-    end
-end
-
--- Функция создания чекбокса
-local function addCheckbox(tab, labelText, defaultValue, callback)
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, -20, 0, 40)
-    frame.Position = UDim2.new(0, 10, 0, #contentContainer:GetChildren() * 45)
-    frame.BackgroundTransparency = 1
-    frame.Parent = contentContainer
-    frame:SetAttribute("Tab", tab)
-    
-    local checkbox = Instance.new("TextButton")
-    checkbox.Size = UDim2.new(0, 24, 0, 24)
-    checkbox.Position = UDim2.new(0, 0, 0, 8)
-    checkbox.Text = ""
-    checkbox.BackgroundColor3 = defaultValue and Color3.fromRGB(80, 180, 80) or Color3.fromRGB(50, 50, 70)
-    checkbox.BorderSizePixel = 1
-    checkbox.BorderColor3 = Color3.fromRGB(100, 100, 120)
-    checkbox.Parent = frame
-    
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -35, 1, 0)
-    label.Position = UDim2.new(0, 35, 0, 0)
-    label.Text = labelText
-    label.TextColor3 = Color3.fromRGB(230, 230, 230)
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.BackgroundTransparency = 1
-    label.Font = Enum.Font.Gotham
-    label.TextSize = 15
-    label.Parent = frame
-    
-    local checked = defaultValue
-    checkbox.MouseButton1Click:Connect(function()
-        checked = not checked
-        checkbox.BackgroundColor3 = checked and Color3.fromRGB(80, 180, 80) or Color3.fromRGB(50, 50, 70)
-        callback(checked)
-    end)
-    
-    return { setValue = function(v) checked = v; checkbox.BackgroundColor3 = checked and Color3.fromRGB(80, 180, 80) or Color3.fromRGB(50, 50, 70); callback(checked) end }
-end
-
--- Функция создания слайдера
-local function addSlider(tab, labelText, minVal, maxVal, defaultVal, callback)
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, -20, 0, 65)
-    frame.Position = UDim2.new(0, 10, 0, #contentContainer:GetChildren() * 70)
-    frame.BackgroundTransparency = 1
-    frame.Parent = contentContainer
-    frame:SetAttribute("Tab", tab)
-    
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, 0, 0, 25)
-    label.Text = labelText .. ": " .. tostring(defaultVal)
-    label.TextColor3 = Color3.fromRGB(230, 230, 230)
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.BackgroundTransparency = 1
-    label.Font = Enum.Font.Gotham
-    label.TextSize = 15
-    label.Parent = frame
-    
-    local sliderFrame = Instance.new("Frame")
-    sliderFrame.Size = UDim2.new(1, 0, 0, 25)
-    sliderFrame.Position = UDim2.new(0, 0, 0, 30)
-    sliderFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
-    sliderFrame.BorderSizePixel = 0
-    sliderFrame.Parent = frame
-    
-    local fill = Instance.new("Frame")
-    fill.Size = UDim2.new((defaultVal-minVal)/(maxVal-minVal), 0, 1, 0)
-    fill.BackgroundColor3 = Color3.fromRGB(80, 150, 220)
-    fill.BorderSizePixel = 0
-    fill.Parent = sliderFrame
-    
-    local value = defaultVal
-    local dragging = false
-    
-    sliderFrame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            local relativeX = math.clamp((input.Position.X - sliderFrame.AbsolutePosition.X) / sliderFrame.AbsoluteSize.X, 0, 1)
-            value = math.floor(minVal + (maxVal - minVal) * relativeX + 0.5)
-            fill.Size = UDim2.new(relativeX, 0, 1, 0)
-            label.Text = labelText .. ": " .. tostring(value)
-            callback(value)
-        end
-    end)
-    
-    sliderFrame.InputEnded:Connect(function()
-        dragging = false
-    end)
-    
-    sliderFrame.MouseMoved:Connect(function(x, y)
-        if dragging then
-            local relativeX = math.clamp((x - sliderFrame.AbsolutePosition.X) / sliderFrame.AbsoluteSize.X, 0, 1)
-            value = math.floor(minVal + (maxVal - minVal) * relativeX + 0.5)
-            fill.Size = UDim2.new(relativeX, 0, 1, 0)
-            label.Text = labelText .. ": " .. tostring(value)
-            callback(value)
-        end
-    end)
-    
-    return { setValue = function(v) value = v; fill.Size = UDim2.new((v-minVal)/(maxVal-minVal), 0, 1, 0); label.Text = labelText .. ": " .. tostring(v); callback(v) end }
-end
-
--- ========== ПЕРЕМЕННЫЕ ==========
 local espEnabled = false
-local speedValue = 54
-local jumpValue = 65
-local hitboxEnabled = false
-local hitboxSize = 4  -- размер хитбокса в студиях
-local xrayEnabled = false
+local flyEnabled = false
+local noclipEnabled = false
+local flyConn = nil
+local velocity = nil
+local UIS = game:GetService("UserInputService")
+local camera = workspace.CurrentCamera
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local localPlayer = Players.LocalPlayer
+local espList = {}
+local walkSpeed = 16
+local flySpeed = 70
 
--- ========== ИСПРАВЛЕННЫЙ HITBOX EXPANDER ==========
--- Создаём невидимые части-хитбоксы вокруг игроков
-local hitboxParts = {}  -- храним созданные хитбоксы
-
-local function updateHitbox()
-    -- Удаляем старые хитбоксы
-    for _, data in pairs(hitboxParts) do
-        if data.part then data.part:Destroy() end
-        if data.connection then data.connection:Disconnect() end
+local function applyCharacterSettings()
+    if localPlayer.Character and localPlayer.Character:FindFirstChild("Humanoid") then
+        localPlayer.Character.Humanoid.WalkSpeed = walkSpeed
     end
-    hitboxParts = {}
-    
-    if not hitboxEnabled then return end
-    
-    for _, otherPlayer in pairs(game.Players:GetPlayers()) do
-        if otherPlayer ~= player then
-            local char = otherPlayer.Character
-            if char then
-                local rootPart = char:FindFirstChild("HumanoidRootPart")
-                if rootPart then
-                    -- Создаём невидимую часть-хитбокс
-                    local hitboxPart = Instance.new("Part")
-                    hitboxPart.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
-                    hitboxPart.Transparency = 1  -- полностью невидимая
-                    hitboxPart.CanCollide = false
-                    hitboxPart.Anchored = false
-                    hitboxPart.Name = "WRANNE_Hitbox"
-                    hitboxPart.Parent = char
-                    
-                    -- Привязываем к персонажу
-                    local weld = Instance.new("Weld")
-                    weld.Part0 = rootPart
-                    weld.Part1 = hitboxPart
-                    weld.C0 = CFrame.new(0, 0, 0)
-                    weld.Parent = hitboxPart
-                    
-                    -- Сохраняем для удаления
-                    table.insert(hitboxParts, {
-                        part = hitboxPart,
-                        player = otherPlayer
-                    })
-                    
-                    -- Следим за перерождением игрока
-                    local connection
-                    connection = otherPlayer.CharacterAdded:Connect(function(newChar)
-                        wait(0.5)
-                        local newRoot = newChar:FindFirstChild("HumanoidRootPart")
-                        if newRoot and hitboxEnabled then
-                            local newHitbox = Instance.new("Part")
-                            newHitbox.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
-                            newHitbox.Transparency = 1
-                            newHitbox.CanCollide = false
-                            newHitbox.Name = "WRANNE_Hitbox"
-                            newHitbox.Parent = newChar
-                            
-                            local newWeld = Instance.new("Weld")
-                            newWeld.Part0 = newRoot
-                            newWeld.Part1 = newHitbox
-                            newWeld.C0 = CFrame.new(0, 0, 0)
-                            newWeld.Parent = newHitbox
-                            
-                            table.insert(hitboxParts, {
-                                part = newHitbox,
-                                player = otherPlayer
-                            })
-                        end
-                    end)
-                    
-                    table.insert(hitboxParts, {connection = connection})
-                end
-            end
+    if flyEnabled then MainTab.Flags["Fly_Toggle"].Callback(true) end
+    if noclipEnabled then MainTab.Flags["Noclip_Toggle"].Callback(true) end
+end
+localPlayer.CharacterAdded:Connect(function() task.wait(1) applyCharacterSettings() end)
+
+local Window = Rayfield:CreateWindow({
+    Name = "WRANNE",
+    LoadingTitle = "WRANNE Loading...",
+    LoadingSubtitle = "by vinhfat",
+    ConfigurationSaving = { Enabled = true, FolderName = nil, FileName = "WRANNEConfig" },
+    Discord = { Enabled = false },
+    KeySystem = false
+})
+
+local MainTab = Window:CreateTab("Main", 4483362458)
+
+MainTab:CreateToggle({
+    Name = "ESP Toggle",
+    CurrentValue = false,
+    Flag = "ESP_Toggle",
+    Callback = function(Value)
+        espEnabled = Value
+        for _, v in pairs(espList) do if v.drawing then v.drawing.Visible = espEnabled end end
+    end,
+})
+
+MainTab:CreateToggle({
+    Name = "Fly Toggle (WASD + Space/Ctrl)",
+    CurrentValue = false,
+    Flag = "Fly_Toggle",
+    Callback = function(Value)
+        flyEnabled = Value
+        local char = localPlayer.Character
+        if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+        local hrp = char.HumanoidRootPart
+        if flyConn then flyConn:Disconnect() end
+        if velocity then velocity:Destroy() end
+        if flyEnabled then
+            velocity = Instance.new("BodyVelocity")
+            velocity.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+            velocity.Velocity = Vector3.zero
+            velocity.Parent = hrp
+            flyConn = RunService.RenderStepped:Connect(function()
+                local camCF = camera.CFrame
+                local move = Vector3.zero
+                if UIS:IsKeyDown(Enum.KeyCode.W) then move += camCF.LookVector end
+                if UIS:IsKeyDown(Enum.KeyCode.S) then move -= camCF.LookVector end
+                if UIS:IsKeyDown(Enum.KeyCode.A) then move -= camCF.RightVector end
+                if UIS:IsKeyDown(Enum.KeyCode.D) then move += camCF.RightVector end
+                if UIS:IsKeyDown(Enum.KeyCode.Space) then move += Vector3.new(0, 1, 0) end
+                if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then move -= Vector3.new(0, 1, 0) end
+                velocity.Velocity = move.Magnitude > 0 and move.Unit * flySpeed or Vector3.zero
+            end)
         end
     end
-end
+})
 
--- Обновляем размер хитбокса при изменении слайдера
-local function setHitboxSize(size)
-    hitboxSize = size
-    if hitboxEnabled then
-        for _, data in pairs(hitboxParts) do
-            if data.part then
-                data.part.Size = Vector3.new(size, size, size)
-            end
+MainTab:CreateSlider({
+    Name = "Fly Speed", Range = {10, 150}, Increment = 5, Suffix = "Speed", CurrentValue = 70, Flag = "FlySpeed",
+    Callback = function(Value) flySpeed = Value end,
+})
+
+MainTab:CreateSlider({
+    Name = "Walk Speed", Range = {16, 200}, Increment = 1, Suffix = "Speed", CurrentValue = 16, Flag = "Speed_Slider",
+    Callback = function(Value)
+        walkSpeed = Value
+        if localPlayer.Character and localPlayer.Character:FindFirstChild("Humanoid") then
+            localPlayer.Character.Humanoid.WalkSpeed = walkSpeed
         end
-    end
-end
+    end,
+})
 
--- ========== ОСТАЛЬНЫЕ ФУНКЦИИ ==========
-local function setSpeed(speed)
-    speedValue = speed
-    local char = player.Character
-    if char and char:FindFirstChild("Humanoid") then
-        char.Humanoid.WalkSpeed = speed
-    end
-end
-
-local function setJump(power)
-    jumpValue = power
-    local char = player.Character
-    if char and char:FindFirstChild("Humanoid") then
-        char.Humanoid.JumpPower = power
-    end
-end
-
-local function updateESP(state)
-    for _, otherPlayer in pairs(game.Players:GetPlayers()) do
-        if otherPlayer ~= player then
-            local char = otherPlayer.Character
-            if char then
-                local hl = char:FindFirstChild("WRANNE_ESP")
-                if state then
-                    if not hl then
-                        hl = Instance.new("Highlight")
-                        hl.Name = "WRANNE_ESP"
-                        hl.FillColor = Color3.fromRGB(255, 0, 0)
-                        hl.FillTransparency = 0.5
-                        hl.Parent = char
+MainTab:CreateToggle({
+    Name = "Noclip Toggle",
+    CurrentValue = false,
+    Flag = "Noclip_Toggle",
+    Callback = function(Value)
+        noclipEnabled = Value
+        if noclipEnabled then
+            noclipConn = RunService.Stepped:Connect(function()
+                if localPlayer.Character and localPlayer.Character:FindFirstChild("Humanoid") then
+                    for _, part in ipairs(localPlayer.Character:GetDescendants()) do
+                        if part:IsA("BasePart") then part.CanCollide = false end
                     end
-                else
-                    if hl then hl:Destroy() end
                 end
-            end
+            end)
+        elseif noclipConn then
+            noclipConn:Disconnect()
         end
-    end
-end
+    end,
+})
 
-local function updateXRay(state)
-    for _, part in pairs(workspace:GetDescendants()) do
-        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" and part.Name ~= "WRANNE_Hitbox" then
-            if state then
-                if not part:GetAttribute("OriginalMaterial") then
-                    part:SetAttribute("OriginalMaterial", part.Material)
-                    part:SetAttribute("OriginalTransparency", part.Transparency)
-                end
-                part.Material = Enum.Material.Neon
-                part.Transparency = 0.3
+function createESP(player)
+    if player == localPlayer or espList[player] then return end
+    local text = Drawing.new("Text")
+    text.Size = 14
+    text.Center = true
+    text.Outline = true
+    text.Color = Color3.fromRGB(255, 0, 0)
+    text.Font = 2
+    text.Visible = false
+    espList[player] = { drawing = text, connection = nil }
+    espList[player].connection = RunService.RenderStepped:Connect(function()
+        local char = player.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        local hum = char and char:FindFirstChild("Humanoid")
+        if hrp and hum and hum.Health > 0 then
+            local pos, visible = camera:WorldToViewportPoint(hrp.Position)
+            if visible then
+                text.Position = Vector2.new(pos.X, pos.Y - 20)
+                text.Text = player.Name
+                text.Visible = espEnabled
             else
-                local mat = part:GetAttribute("OriginalMaterial")
-                local trans = part:GetAttribute("OriginalTransparency")
-                if mat then
-                    part.Material = mat
-                    part.Transparency = trans or 0
-                end
+                text.Visible = false
             end
+        else
+            text.Visible = false
         end
+    end)
+end
+
+function removeESP(player)
+    if espList[player] then
+        espList[player].drawing:Remove()
+        if espList[player].connection then espList[player].connection:Disconnect() end
+        espList[player] = nil
     end
 end
 
--- ========== СОЗДАНИЕ UI ==========
-addCheckbox("Main", "ESP (Enemies Only)", false, function(state)
-    espEnabled = state
-    updateESP(state)
-end)
+for _, player in pairs(Players:GetPlayers()) do createESP(player) end
+Players.PlayerAdded:Connect(createESP)
+Players.PlayerRemoving:Connect(removeESP)
 
-addSlider("Main", "Fast Speed", 16, 250, 54, function(value)
-    setSpeed(value)
-end)
+local GardenTab = Window:CreateTab("Grow a Garden", 4483362458)
+GardenTab:CreateButton({ Name = "Load PC Script", Callback = function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/AhmadV99/Speed-Hub-X/main/Speed%20Hub%20X.lua", true))()
+end })
+GardenTab:CreateButton({ Name = "Load Mobile Script", Callback = function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/AhmadV99/Speed-Hub-X/main/Speed%20Hub%20X.lua", true))()
+end })
 
-addSlider("Main", "Super Jump", 50, 250, 65, function(value)
-    setJump(value)
-end)
+local AdminTab = Window:CreateTab("Admin", 4483362458)
+AdminTab:CreateButton({ Name = "Copy Admin Facebook", Callback = function()
+    setclipboard("https://www.facebook.com/nguyenvinhtriowo")
+    Rayfield:Notify({Title = "Copied", Content = "Link copied to clipboard."})
+end })
 
-addCheckbox("Main", "Hitbox Expander (ON / OFF)", false, function(state)
-    hitboxEnabled = state
-    updateHitbox()
-end)
+local Aimbot = {
+    Radius = 120,
+    TargetPart = "Head"
+}
 
-addSlider("Main", "Hitbox Size", 1, 1000, 4, function(value)
-    setHitboxSize(value)
-end)
+local TracerLines = {}
 
-addCheckbox("Misc", "X-Ray Vision (Wallhack)", false, function(state)
-    xrayEnabled = state
-    updateXRay(state)
-end)
+function updateViewTracers()
+    for _, line in pairs(TracerLines) do line:Remove() end
+    table.clear(TracerLines)
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local line = Drawing.new("Line")
+            line.Color = Color3.fromRGB(255, 0, 255)
+            line.Thickness = 1
+            line.Transparency = 1
+            line.Visible = true
+            TracerLines[player] = line
+        end
+    end
+end
+updateViewTracers()
+Players.PlayerAdded:Connect(updateViewTracers)
+Players.PlayerRemoving:Connect(updateViewTracers)
 
-updateContentVisibility()
+local aimbotEnabled = false
 
--- ========== ПЕРЕТАСКИВАНИЕ ==========
-titleBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = input.Position
-        dragStartPos = mainFrame.Position
+RunService.RenderStepped:Connect(function()
+    local mouseDown = UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
+    local target = nil
+    if mouseDown and aimbotEnabled then
+        local closest, dist = nil, Aimbot.Radius
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= localPlayer and player.Character then
+                local part = player.Character:FindFirstChild(Aimbot.TargetPart)
+                local hum = player.Character:FindFirstChildOfClass("Humanoid")
+                if part and hum and hum.Health > 0 then
+                    local pos, visible = camera:WorldToViewportPoint(part.Position)
+                    if visible then
+                        local mag = (Vector2.new(pos.X, pos.Y) - UIS:GetMouseLocation()).Magnitude
+                        if mag < dist then
+                            dist = mag
+                            closest = part
+                        end
+                    end
+                end
+            end
+        end
+        if closest then
+            camera.CFrame = CFrame.new(camera.CFrame.Position, closest.Position)
+        end
+    end
+
+    for player, line in pairs(TracerLines) do
+        local char = player.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local screenPos, visible = camera:WorldToViewportPoint(hrp.Position)
+            line.From = Vector2.new(screenPos.X, screenPos.Y)
+            line.To = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
+            line.Visible = visible and TracerLines[player].Visible
+        else
+            line.Visible = false
+        end
     end
 end)
 
-titleBar.InputEnded:Connect(function()
-    dragging = false
-end)
-
-game:GetService("RunService").RenderStepped:Connect(function()
-    if dragging then
-        local delta = mouse.X - dragStart.X
-        local deltaY = mouse.Y - dragStart.Y
-        mainFrame.Position = UDim2.new(0, dragStartPos.X.Offset + delta, 0, dragStartPos.Y.Offset + deltaY)
+MainTab:CreateToggle({
+    Name = "Aimbot (right mouse)",
+    CurrentValue = false,
+    Flag = "Aimbot_Toggle",
+    Callback = function(Value)
+        aimbotEnabled = Value
     end
-end)
+})
 
--- ========== ОТКРЫТИЕ/ЗАКРЫТИЕ ==========
-closeBtn.MouseButton1Click:Connect(function()
-    menuVisible = false
-    mainFrame.Visible = false
-end)
-
-mouse.KeyDown:Connect(function(key)
-    if key == openKey then
-        menuVisible = not menuVisible
-        mainFrame.Visible = menuVisible
+MainTab:CreateToggle({
+    Name = "Anti AFK",
+    CurrentValue = false,
+    Flag = "AntiAFK_Toggle",
+    Callback = function(Value)
+        if Value then
+            if _G.AntiAFKConnection then _G.AntiAFKConnection:Disconnect() end
+            local vu = game:GetService("VirtualUser")
+            _G.AntiAFKConnection = game:GetService("Players").LocalPlayer.Idled:Connect(function()
+                vu:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+                task.wait(1)
+                vu:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+            end)
+        else
+            if _G.AntiAFKConnection then
+                _G.AntiAFKConnection:Disconnect()
+                _G.AntiAFKConnection = nil
+            end
+        end
     end
-end)
-
--- ========== ПЕРЕРОЖДЕНИЕ ==========
-player.CharacterAdded:Connect(function(char)
-    wait(0.5)
-    setSpeed(speedValue)
-    setJump(jumpValue)
-    if espEnabled then updateESP(true) end
-    if hitboxEnabled then updateHitbox() end
-    if xrayEnabled then updateXRay(true) end
-end)
-
-game.Players.PlayerAdded:Connect(function()
-    if espEnabled then updateESP(true) end
-    if hitboxEnabled then updateHitbox() end
-end)
-
-game.Players.PlayerRemoving:Connect(function()
-    if espEnabled then updateESP(true) end
-end)
-
-print("WRANNE HUB загружен! Нажми Insert для открытия меню")
+})
