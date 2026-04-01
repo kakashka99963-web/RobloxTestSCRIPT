@@ -14,15 +14,15 @@ local flyConn = nil
 local velocity = nil
 local walkSpeed = 16
 local flySpeed = 70
-local espHighlights = {}  -- для хранения Highlight объектов
+local espHighlights = {}
 local hitboxEnabled = false
 local hitboxSize = 4
-local hitboxParts = {}  -- для хранения хитбоксов
+local hitboxParts = {}
 local xrayEnabled = false
-local xrayParts = {}  -- для хранения оригинальных материалов
 local aimbotEnabled = false
+local espColor = Color3.fromRGB(255, 0, 0)
 
--- ========== ESP (HIGHLIGHT) ==========
+-- ========== ESP (КАК В GOLDEN HUB - ТОЛЬКО КОНТУР) ==========
 local function updateESP()
     -- Удаляем старые подсветки
     for player, hl in pairs(espHighlights) do
@@ -40,10 +40,11 @@ local function updateESP()
             if char then
                 local hl = Instance.new("Highlight")
                 hl.Name = "WRANNE_ESP"
-                hl.FillColor = Color3.fromRGB(255, 0, 0)
-                hl.FillTransparency = 0.5
-                hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                -- Заливка полностью прозрачная, только контур
+                hl.FillTransparency = 1
+                hl.OutlineColor = espColor
                 hl.OutlineTransparency = 0
+                hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
                 hl.Parent = char
                 espHighlights[otherPlayer] = hl
             end
@@ -51,7 +52,7 @@ local function updateESP()
     end
 end
 
--- ========== HITBOX EXPANDER (невидимая зона) ==========
+-- ========== HITBOX EXPANDER (НЕВИДИМАЯ ЗОНА ПОРАЖЕНИЯ) ==========
 local function updateHitbox()
     -- Удаляем старые хитбоксы
     for _, data in pairs(hitboxParts) do
@@ -68,10 +69,10 @@ local function updateHitbox()
             if char then
                 local rootPart = char:FindFirstChild("HumanoidRootPart")
                 if rootPart then
-                    -- Создаём невидимую часть
+                    -- Создаём НЕВИДИМУЮ часть-хитбокс
                     local hitboxPart = Instance.new("Part")
                     hitboxPart.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
-                    hitboxPart.Transparency = 1
+                    hitboxPart.Transparency = 1  -- полностью невидимая
                     hitboxPart.CanCollide = false
                     hitboxPart.Anchored = false
                     hitboxPart.Name = "WRANNE_Hitbox"
@@ -264,7 +265,7 @@ end)
 local Window = Rayfield:CreateWindow({
     Name = "WRANNE",
     LoadingTitle = "WRANNE Loading...",
-    LoadingSubtitle = "by vinhfat",
+    LoadingSubtitle = "by WranneScripts",  -- ← ИЗМЕНЕНО!
     ConfigurationSaving = { Enabled = true, FolderName = nil, FileName = "WRANNEConfig" },
     Discord = { Enabled = false },
     KeySystem = false
@@ -353,7 +354,6 @@ end })
 local VisualsTab = Window:CreateTab("Visuals", 4483362458)
 
 -- ESP Color
-local espColor = Color3.fromRGB(255, 0, 0)
 VisualsTab:CreateColorPicker({
     Name = "ESP Color",
     Color = espColor,
@@ -361,7 +361,7 @@ VisualsTab:CreateColorPicker({
     Callback = function(color)
         espColor = color
         for _, hl in pairs(espHighlights) do
-            if hl then hl.FillColor = espColor end
+            if hl then hl.OutlineColor = espColor end
         end
     end
 })
