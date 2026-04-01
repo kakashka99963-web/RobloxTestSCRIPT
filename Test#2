@@ -1,0 +1,440 @@
+--[[
+    WRANNE HUB
+    Функции: ESP, Fast Speed (54), Super Jump (65), Hitbox Expander (1-1000), X-Ray Vision
+]]
+
+local player = game.Players.LocalPlayer
+local mouse = player:GetMouse()
+
+-- ========== НАСТРОЙКИ ==========
+local openKey = Enum.KeyCode.Insert
+local menuVisible = false
+local dragging = false
+local dragStart = nil
+local menuPosition = UDim2.new(0.5, -250, 0.5, -200)
+
+-- ========== СОЗДАНИЕ GUI ==========
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "WRANNE_HUB"
+screenGui.Parent = player:WaitForChild("PlayerGui")
+screenGui.ResetOnSpawn = false
+
+-- Главное окно
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 500, 0, 480)
+mainFrame.Position = menuPosition
+mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+mainFrame.BorderSizePixel = 0
+mainFrame.ClipsDescendants = true
+mainFrame.Parent = screenGui
+mainFrame.Visible = menuVisible
+
+-- Заголовок
+local titleBar = Instance.new("Frame")
+titleBar.Size = UDim2.new(1, 0, 0, 35)
+titleBar.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+titleBar.BorderSizePixel = 0
+titleBar.Parent = mainFrame
+
+local titleText = Instance.new("TextLabel")
+titleText.Size = UDim2.new(1, -35, 1, 0)
+titleText.Position = UDim2.new(0, 10, 0, 0)
+titleText.Text = "WRANNE HUB"
+titleText.TextColor3 = Color3.fromRGB(255, 200, 100)
+titleText.TextXAlignment = Enum.TextXAlignment.Left
+titleText.BackgroundTransparency = 1
+titleText.Font = Enum.Font.GothamBold
+titleText.TextSize = 18
+titleText.Parent = titleBar
+
+-- Кнопка закрытия
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 35, 1, 0)
+closeBtn.Position = UDim2.new(1, -35, 0, 0)
+closeBtn.Text = "X"
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+closeBtn.BorderSizePixel = 0
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 16
+closeBtn.Parent = titleBar
+
+-- Панель вкладок
+local tabBar = Instance.new("Frame")
+tabBar.Size = UDim2.new(1, 0, 0, 45)
+tabBar.Position = UDim2.new(0, 0, 0, 35)
+tabBar.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+tabBar.BorderSizePixel = 0
+tabBar.Parent = mainFrame
+
+-- Контейнер для содержимого
+local contentContainer = Instance.new("ScrollingFrame")
+contentContainer.Size = UDim2.new(1, 0, 1, -80)
+contentContainer.Position = UDim2.new(0, 0, 0, 80)
+contentContainer.BackgroundTransparency = 1
+contentContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+contentContainer.ScrollBarThickness = 6
+contentContainer.Parent = mainFrame
+
+-- ========== ВКЛАДКИ ==========
+local tabs = {"Main", "Misc"}
+local activeTab = "Main"
+local tabButtons = {}
+
+for i, tabName in ipairs(tabs) do
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 100, 1, 0)
+    btn.Position = UDim2.new(0, (i-1)*100, 0, 0)
+    btn.Text = tabName
+    btn.TextColor3 = Color3.fromRGB(220, 220, 220)
+    btn.BackgroundColor3 = tabName == "Main" and Color3.fromRGB(60, 60, 80) or Color3.fromRGB(40, 40, 60)
+    btn.BorderSizePixel = 0
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 14
+    btn.Parent = tabBar
+    
+    btn.MouseButton1Click:Connect(function()
+        activeTab = tabName
+        for _, b in pairs(tabButtons) do
+            b.BackgroundColor3 = b.Text == tabName and Color3.fromRGB(60, 60, 80) or Color3.fromRGB(40, 40, 60)
+        end
+        updateContentVisibility()
+    end)
+    
+    table.insert(tabButtons, btn)
+end
+
+-- Функция создания чекбокса
+local function addCheckbox(tab, labelText, defaultValue, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, -20, 0, 35)
+    frame.Position = UDim2.new(0, 10, 0, #contentContainer:GetChildren() * 40)
+    frame.BackgroundTransparency = 1
+    frame.Parent = contentContainer
+    frame:SetAttribute("Tab", tab)
+    
+    local checkbox = Instance.new("TextButton")
+    checkbox.Size = UDim2.new(0, 22, 0, 22)
+    checkbox.Position = UDim2.new(0, 0, 0, 6)
+    checkbox.Text = ""
+    checkbox.BackgroundColor3 = defaultValue and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(60, 60, 60)
+    checkbox.BorderSizePixel = 0
+    checkbox.Parent = frame
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -30, 1, 0)
+    label.Position = UDim2.new(0, 30, 0, 0)
+    label.Text = labelText
+    label.TextColor3 = Color3.fromRGB(230, 230, 230)
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.BackgroundTransparency = 1
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 14
+    label.Parent = frame
+    
+    local checked = defaultValue
+    checkbox.MouseButton1Click:Connect(function()
+        checked = not checked
+        checkbox.BackgroundColor3 = checked and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(60, 60, 60)
+        callback(checked)
+    end)
+    
+    return { setValue = function(v) checked = v; checkbox.BackgroundColor3 = checked and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(60, 60, 60); callback(checked) end }
+end
+
+-- Функция создания слайдера
+local function addSlider(tab, labelText, minVal, maxVal, defaultVal, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, -20, 0, 60)
+    frame.Position = UDim2.new(0, 10, 0, #contentContainer:GetChildren() * 65)
+    frame.BackgroundTransparency = 1
+    frame.Parent = contentContainer
+    frame:SetAttribute("Tab", tab)
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 0, 25)
+    label.Text = labelText .. ": " .. tostring(defaultVal)
+    label.TextColor3 = Color3.fromRGB(230, 230, 230)
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.BackgroundTransparency = 1
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 14
+    label.Parent = frame
+    
+    local sliderFrame = Instance.new("Frame")
+    sliderFrame.Size = UDim2.new(1, 0, 0, 20)
+    sliderFrame.Position = UDim2.new(0, 0, 0, 28)
+    sliderFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+    sliderFrame.BorderSizePixel = 0
+    sliderFrame.Parent = frame
+    
+    local fill = Instance.new("Frame")
+    fill.Size = UDim2.new((defaultVal-minVal)/(maxVal-minVal), 0, 1, 0)
+    fill.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
+    fill.BorderSizePixel = 0
+    fill.Parent = sliderFrame
+    
+    local value = defaultVal
+    local dragging = false
+    
+    sliderFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            local relativeX = math.clamp((input.Position.X - sliderFrame.AbsolutePosition.X) / sliderFrame.AbsoluteSize.X, 0, 1)
+            value = minVal + (maxVal - minVal) * relativeX
+            value = math.floor(value)
+            fill.Size = UDim2.new(relativeX, 0, 1, 0)
+            label.Text = labelText .. ": " .. tostring(value)
+            callback(value)
+        end
+    end)
+    
+    sliderFrame.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    sliderFrame.MouseMoved:Connect(function(x, y)
+        if dragging then
+            local relativeX = math.clamp((x - sliderFrame.AbsolutePosition.X) / sliderFrame.AbsoluteSize.X, 0, 1)
+            value = minVal + (maxVal - minVal) * relativeX
+            value = math.floor(value)
+            fill.Size = UDim2.new(relativeX, 0, 1, 0)
+            label.Text = labelText .. ": " .. tostring(value)
+            callback(value)
+        end
+    end)
+    
+    return { setValue = function(v) value = v; fill.Size = UDim2.new((v-minVal)/(maxVal-minVal), 0, 1, 0); label.Text = labelText .. ": " .. tostring(v); callback(v) end }
+end
+
+-- Функция обновления видимости
+local function updateContentVisibility()
+    for _, child in pairs(contentContainer:GetChildren()) do
+        if child:GetAttribute("Tab") then
+            child.Visible = child:GetAttribute("Tab") == activeTab
+        end
+    end
+end
+
+-- ========== ПЕРЕМЕННЫЕ ДЛЯ ФУНКЦИЙ ==========
+local espEnabled = false
+local espColor = Color3.fromRGB(255, 0, 0)
+local speedValue = 54  -- ← как на скриншоте
+local jumpPowerValue = 65  -- ← как на скриншоте
+local hitboxEnabled = false
+local hitboxSize = 4
+local xrayEnabled = false
+
+-- ESP
+local function updateESP()
+    for _, otherPlayer in pairs(game.Players:GetPlayers()) do
+        if otherPlayer ~= player then
+            local character = otherPlayer.Character
+            if character then
+                local highlight = character:FindFirstChild("WRANNE_ESP")
+                if espEnabled then
+                    if not highlight then
+                        highlight = Instance.new("Highlight")
+                        highlight.Name = "WRANNE_ESP"
+                        highlight.FillColor = espColor
+                        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                        highlight.FillTransparency = 0.5
+                        highlight.Parent = character
+                    end
+                else
+                    if highlight then highlight:Destroy() end
+                end
+            end
+        end
+    end
+end
+
+local function setESPColor(color)
+    espColor = color
+    for _, otherPlayer in pairs(game.Players:GetPlayers()) do
+        if otherPlayer ~= player then
+            local character = otherPlayer.Character
+            if character then
+                local highlight = character:FindFirstChild("WRANNE_ESP")
+                if highlight then
+                    highlight.FillColor = color
+                end
+            end
+        end
+    end
+end
+
+-- Скорость
+local function setSpeed(speed)
+    speedValue = speed
+    local char = player.Character
+    if char then
+        local humanoid = char:FindFirstChild("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = speed
+        end
+    end
+end
+
+-- Супер прыжок
+local function setJumpPower(power)
+    jumpPowerValue = power
+    local char = player.Character
+    if char then
+        local humanoid = char:FindFirstChild("Humanoid")
+        if humanoid then
+            humanoid.JumpPower = power
+        end
+    end
+end
+
+-- Hitbox Expander
+local function updateHitbox()
+    for _, otherPlayer in pairs(game.Players:GetPlayers()) do
+        if otherPlayer ~= player then
+            local character = otherPlayer.Character
+            if character then
+                for _, part in pairs(character:GetDescendants()) do
+                    if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                        if hitboxEnabled then
+                            local size = part.Size
+                            part.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
+                            part:SetAttribute("OriginalSize", size)
+                        else
+                            local original = part:GetAttribute("OriginalSize")
+                            if original then
+                                part.Size = original
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- X-Ray Vision
+local function updateXRay()
+    for _, part in pairs(workspace:GetDescendants()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            if xrayEnabled then
+                if not part:GetAttribute("OriginalMaterial") then
+                    part:SetAttribute("OriginalMaterial", part.Material)
+                    part:SetAttribute("OriginalTransparency", part.Transparency)
+                end
+                part.Material = Enum.Material.Neon
+                part.Transparency = 0.3
+            else
+                local originalMat = part:GetAttribute("OriginalMaterial")
+                local originalTrans = part:GetAttribute("OriginalTransparency")
+                if originalMat then
+                    part.Material = originalMat
+                    part.Transparency = originalTrans or 0
+                end
+            end
+        end
+    end
+end
+
+-- ========== СОЗДАНИЕ UI ==========
+
+-- Main вкладка
+addCheckbox("Main", "ESP (Enemies Only)", false, function(state)
+    espEnabled = state
+    updateESP()
+end)
+
+addSlider("Main", "ESP Color", 0, 1, 1, function(value)
+    local color = Color3.fromHSV(value, 1, 1)
+    setESPColor(color)
+end)
+
+addSlider("Main", "Fast Speed", 16, 250, 54, function(value)  -- ← дефолт 54
+    setSpeed(value)
+end)
+
+addSlider("Main", "Super Jump", 50, 250, 65, function(value)  -- ← дефолт 65
+    setJumpPower(value)
+end)
+
+addCheckbox("Main", "Hitbox Expander (ON / OFF)", false, function(state)
+    hitboxEnabled = state
+    updateHitbox()
+end)
+
+addSlider("Main", "Hitbox Size", 1, 1000, 4, function(value)  -- ← до 1000
+    hitboxSize = value
+    if hitboxEnabled then
+        updateHitbox()
+    end
+end)
+
+-- Misc вкладка
+addCheckbox("Misc", "X-Ray Vision (Wallhack)", false, function(state)
+    xrayEnabled = state
+    updateXRay()
+end)
+
+updateContentVisibility()
+
+-- ========== ПЕРЕТАСКИВАНИЕ ОКНА ==========
+local dragStartPos = nil
+titleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStartPos = input.Position
+    end
+end)
+
+titleBar.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
+
+game:GetService("RunService").RenderStepped:Connect(function()
+    if dragging then
+        local delta = mouse.X - dragStartPos.X
+        local deltaY = mouse.Y - dragStartPos.Y
+        local newX = mainFrame.Position.X.Offset + delta
+        local newY = mainFrame.Position.Y.Offset + deltaY
+        mainFrame.Position = UDim2.new(0, newX, 0, newY)
+        dragStartPos = mouse.X, mouse.Y
+    end
+end)
+
+-- ========== ОТКРЫТИЕ/ЗАКРЫТИЕ ==========
+closeBtn.MouseButton1Click:Connect(function()
+    menuVisible = false
+    mainFrame.Visible = false
+end)
+
+mouse.KeyDown:Connect(function(key)
+    if key == "Insert" then
+        menuVisible = not menuVisible
+        mainFrame.Visible = menuVisible
+    end
+end)
+
+-- ========== СЛЕДИМ ЗА ПЕРЕРОЖДЕНИЕМ ==========
+player.CharacterAdded:Connect(function(char)
+    wait(0.5)
+    setSpeed(speedValue)
+    setJumpPower(jumpPowerValue)
+    if espEnabled then updateESP() end
+    if hitboxEnabled then updateHitbox() end
+    if xrayEnabled then updateXRay() end
+end)
+
+game.Players.PlayerAdded:Connect(function()
+    if espEnabled then updateESP() end
+    if hitboxEnabled then updateHitbox() end
+end)
+
+game.Players.PlayerRemoving:Connect(function()
+    if espEnabled then updateESP() end
+end)
+
+print("WRANNE HUB загружен! Нажми Insert для открытия меню")
