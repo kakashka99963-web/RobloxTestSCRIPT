@@ -14,7 +14,6 @@ local flyConn = nil
 local velocity = nil
 local walkSpeed = 16
 local flySpeed = 70
-local espHighlights = {}
 local hitboxEnabled = false
 local hitboxSize = 4
 local hitboxParts = {}
@@ -22,39 +21,37 @@ local xrayEnabled = false
 local aimbotEnabled = false
 local espColor = Color3.fromRGB(255, 0, 0)
 
--- ========== ESP (ТОЛЬКО КОНТУР) ==========
+-- ========== ESP (КОНТУР) ==========
 local function updateESP()
-    for player, hl in pairs(espHighlights) do
-        if hl and hl.Parent then hl:Destroy() end
-    end
-    espHighlights = {}
-    
-    if not espEnabled then return end
-    
-    for _, otherPlayer in pairs(Players:GetPlayers()) do
-        if otherPlayer ~= localPlayer then
-            local char = otherPlayer.Character
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= localPlayer then
+            local char = player.Character
             if char then
-                local hl = Instance.new("Highlight")
-                hl.Name = "WRANNE_ESP"
-                hl.FillTransparency = 1
-                hl.OutlineColor = espColor
-                hl.OutlineTransparency = 0
-                hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                hl.Parent = char
-                espHighlights[otherPlayer] = hl
+                local hl = char:FindFirstChild("WRANNE_ESP")
+                if espEnabled then
+                    if not hl then
+                        hl = Instance.new("Highlight")
+                        hl.Name = "WRANNE_ESP"
+                        hl.FillTransparency = 1
+                        hl.OutlineColor = espColor
+                        hl.Parent = char
+                    end
+                else
+                    if hl then hl:Destroy() end
+                end
             end
         end
     end
 end
 
--- ========== HITBOX EXPANDER (ДЛЯ MURDERERS VS SHERIFFS DUELS) ==========
--- В этой игре нет HumanoidRootPart, используем UpperTorso или LowerTorso
+-- ========== HITBOX EXPANDER (ПРОСТАЯ ВЕРСИЯ) ==========
 local function updateHitbox()
     -- Удаляем старые хитбоксы
     for _, data in pairs(hitboxParts) do
-        if data.part then data.part:Destroy() end
-        if data.connection then data.connection:Disconnect() end
+        if data then
+            if data.part then data.part:Destroy() end
+            if data.conn then data.conn:Disconnect() end
+        end
     end
     hitboxParts = {}
     
@@ -64,58 +61,27 @@ local function updateHitbox()
         if otherPlayer ~= localPlayer then
             local char = otherPlayer.Character
             if char then
-                -- Ищем часть тела, к которой прикрепить хитбокс
-                local attachPart = char:FindFirstChild("UpperTorso") or 
-                                   char:FindFirstChild("LowerTorso") or 
-                                   char:FindFirstChild("Torso") or
-                                   char:FindFirstChild("HumanoidRootPart")
-                
-                if attachPart then
-                    -- Создаём невидимую часть-хитбокс
-                    local hitboxPart = Instance.new("Part")
-                    hitboxPart.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
-                    hitboxPart.Transparency = 1  -- полностью невидимая
-                    hitboxPart.CanCollide = false
-                    hitboxPart.Anchored = false
-                    hitboxPart.Name = "WRANNE_Hitbox"
-                    hitboxPart.Parent = char
+                -- Ищем к чему прикрепиться
+                local attach = char:FindFirstChild("HumanoidRootPart") or 
+                               char:FindFirstChild("UpperTorso") or 
+                               char:FindFirstChild("Torso")
+                if attach then
+                    -- Создаём сферу
+                    local ball = Instance.new("Part")
+                    ball.Shape = Enum.PartType.Ball
+                    ball.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
+                    ball.Transparency = 1
+                    ball.CanCollide = false
+                    ball.Name = "WRANNE_Hitbox"
+                    ball.Parent = char
                     
-                    -- Привязываем к части тела
+                    -- Приклеиваем
                     local weld = Instance.new("Weld")
-                    weld.Part0 = attachPart
-                    weld.Part1 = hitboxPart
-                    weld.C0 = CFrame.new(0, 0, 0)
-                    weld.Parent = hitboxPart
+                    weld.Part0 = attach
+                    weld.Part1 = ball
+                    weld.Parent = ball
                     
-                    table.insert(hitboxParts, {part = hitboxPart, player = otherPlayer})
-                    
-                    -- Следим за перерождением
-                    local conn = otherPlayer.CharacterAdded:Connect(function(newChar)
-                        task.wait(0.5)
-                        if hitboxEnabled then
-                            local newAttach = newChar:FindFirstChild("UpperTorso") or 
-                                              newChar:FindFirstChild("LowerTorso") or 
-                                              newChar:FindFirstChild("Torso") or
-                                              newChar:FindFirstChild("HumanoidRootPart")
-                            if newAttach then
-                                local newHitbox = Instance.new("Part")
-                                newHitbox.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
-                                newHitbox.Transparency = 1
-                                newHitbox.CanCollide = false
-                                newHitbox.Name = "WRANNE_Hitbox"
-                                newHitbox.Parent = newChar
-                                
-                                local newWeld = Instance.new("Weld")
-                                newWeld.Part0 = newAttach
-                                newWeld.Part1 = newHitbox
-                                newWeld.C0 = CFrame.new(0, 0, 0)
-                                newWeld.Parent = newHitbox
-                                
-                                table.insert(hitboxParts, {part = newHitbox, player = otherPlayer})
-                            end
-                        end
-                    end)
-                    table.insert(hitboxParts, {connection = conn})
+                    table.insert(hitboxParts, {part = ball})
                 end
             end
         end
@@ -124,11 +90,9 @@ end
 
 local function setHitboxSize(size)
     hitboxSize = size
-    if hitboxEnabled then
-        for _, data in pairs(hitboxParts) do
-            if data.part then
-                data.part.Size = Vector3.new(size, size, size)
-            end
+    for _, data in pairs(hitboxParts) do
+        if data.part then
+            data.part.Size = Vector3.new(size, size, size)
         end
     end
 end
@@ -136,18 +100,17 @@ end
 -- ========== X-RAY ==========
 local function updateXRay()
     for _, part in pairs(workspace:GetDescendants()) do
-        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" and part.Name ~= "WRANNE_Hitbox" 
-           and part.Name ~= "UpperTorso" and part.Name ~= "LowerTorso" and part.Name ~= "Torso" then
+        if part:IsA("BasePart") and part.Name ~= "WRANNE_Hitbox" then
             if xrayEnabled then
-                if not part:GetAttribute("OriginalMaterial") then
-                    part:SetAttribute("OriginalMaterial", part.Material)
-                    part:SetAttribute("OriginalTransparency", part.Transparency)
+                if not part:GetAttribute("OriginalMat") then
+                    part:SetAttribute("OriginalMat", part.Material)
+                    part:SetAttribute("OriginalTrans", part.Transparency)
                 end
                 part.Material = Enum.Material.Neon
                 part.Transparency = 0.3
             else
-                local mat = part:GetAttribute("OriginalMaterial")
-                local trans = part:GetAttribute("OriginalTransparency")
+                local mat = part:GetAttribute("OriginalMat")
+                local trans = part:GetAttribute("OriginalTrans")
                 if mat then
                     part.Material = mat
                     part.Transparency = trans or 0
@@ -157,7 +120,7 @@ local function updateXRay()
     end
 end
 
--- ========== ФУНКЦИИ ==========
+-- ========== ОСТАЛЬНЫЕ ФУНКЦИИ ==========
 local function setSpeed(speed)
     walkSpeed = speed
     local char = localPlayer.Character
@@ -170,9 +133,7 @@ end
 local function toggleFly()
     local char = localPlayer.Character
     if not char then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart") or 
-                 char:FindFirstChild("UpperTorso") or 
-                 char:FindFirstChild("LowerTorso")
+    local hrp = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("UpperTorso")
     if not hrp then return end
     
     if flyConn then flyConn:Disconnect() end
@@ -181,7 +142,6 @@ local function toggleFly()
     if flyEnabled then
         velocity = Instance.new("BodyVelocity")
         velocity.MaxForce = Vector3.new(1e6, 1e6, 1e6)
-        velocity.Velocity = Vector3.zero
         velocity.Parent = hrp
         flyConn = RunService.RenderStepped:Connect(function()
             local camCF = camera.CFrame
@@ -204,9 +164,7 @@ local function toggleNoclip()
         noclipConn = RunService.Stepped:Connect(function()
             if localPlayer.Character then
                 for _, part in ipairs(localPlayer.Character:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
-                    end
+                    if part:IsA("BasePart") then part.CanCollide = false end
                 end
             end
         end)
@@ -214,24 +172,20 @@ local function toggleNoclip()
 end
 
 -- ========== AIMBOT ==========
-local aimbotEnabled = false
-local Aimbot = { Radius = 120, TargetPart = "Head" }
-
 RunService.RenderStepped:Connect(function()
-    local mouseDown = UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
-    if mouseDown and aimbotEnabled then
-        local closest, dist = nil, Aimbot.Radius
+    if aimbotEnabled and UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+        local closest, dist = nil, 120
         for _, player in pairs(Players:GetPlayers()) do
             if player ~= localPlayer and player.Character then
-                local part = player.Character:FindFirstChild(Aimbot.TargetPart)
+                local head = player.Character:FindFirstChild("Head")
                 local hum = player.Character:FindFirstChildOfClass("Humanoid")
-                if part and hum and hum.Health > 0 then
-                    local pos, visible = camera:WorldToViewportPoint(part.Position)
-                    if visible then
+                if head and hum and hum.Health > 0 then
+                    local pos, vis = camera:WorldToViewportPoint(head.Position)
+                    if vis then
                         local mag = (Vector2.new(pos.X, pos.Y) - UIS:GetMouseLocation()).Magnitude
                         if mag < dist then
                             dist = mag
-                            closest = part
+                            closest = head
                         end
                     end
                 end
@@ -243,8 +197,8 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- ========== ОБНОВЛЕНИЕ ПРИ РАУНДЕ ==========
-local function onCharacterAdded()
+-- ========== ОБНОВЛЕНИЯ ==========
+localPlayer.CharacterAdded:Connect(function()
     task.wait(0.5)
     setSpeed(walkSpeed)
     if flyEnabled then toggleFly() end
@@ -252,24 +206,15 @@ local function onCharacterAdded()
     if espEnabled then updateESP() end
     if hitboxEnabled then updateHitbox() end
     if xrayEnabled then updateXRay() end
-end
+end)
 
-localPlayer.CharacterAdded:Connect(onCharacterAdded)
-
-Players.PlayerAdded:Connect(function(player)
+Players.PlayerAdded:Connect(function()
     task.wait(0.5)
     if espEnabled then updateESP() end
     if hitboxEnabled then updateHitbox() end
 end)
 
-Players.PlayerRemoving:Connect(function(player)
-    if espHighlights[player] then
-        espHighlights[player]:Destroy()
-        espHighlights[player] = nil
-    end
-end)
-
--- ========== СОЗДАНИЕ GUI ==========
+-- ========== GUI ==========
 local Window = Rayfield:CreateWindow({
     Name = "WRANNE",
     LoadingTitle = "WRANNE Loading...",
@@ -279,137 +224,108 @@ local Window = Rayfield:CreateWindow({
     KeySystem = false
 })
 
--- Main Tab
 local MainTab = Window:CreateTab("Main", 4483362458)
+local VisualsTab = Window:CreateTab("Visuals", 4483362458)
+local AdminTab = Window:CreateTab("Admin", 4483362458)
 
+-- Main Tab
 MainTab:CreateToggle({
     Name = "ESP Toggle",
     CurrentValue = false,
-    Flag = "ESP_Toggle",
-    Callback = function(Value)
-        espEnabled = Value
-        updateESP()
-    end,
+    Callback = function(v) espEnabled = v; updateESP() end
 })
 
 MainTab:CreateToggle({
-    Name = "Fly Toggle (WASD + Space/Ctrl)",
+    Name = "Fly Toggle",
     CurrentValue = false,
-    Flag = "Fly_Toggle",
-    Callback = function(Value)
-        flyEnabled = Value
-        toggleFly()
-    end
+    Callback = function(v) flyEnabled = v; toggleFly() end
 })
 
 MainTab:CreateSlider({
-    Name = "Fly Speed", Range = {10, 150}, Increment = 5, Suffix = "Speed", CurrentValue = 70, Flag = "FlySpeed",
-    Callback = function(Value) flySpeed = Value end,
+    Name = "Fly Speed", Range = {10, 150}, Increment = 5, CurrentValue = 70,
+    Callback = function(v) flySpeed = v end
 })
 
 MainTab:CreateSlider({
-    Name = "Walk Speed", Range = {16, 200}, Increment = 1, Suffix = "Speed", CurrentValue = 16, Flag = "Speed_Slider",
-    Callback = function(Value) setSpeed(Value) end,
+    Name = "Walk Speed", Range = {16, 200}, Increment = 1, CurrentValue = 16,
+    Callback = function(v) setSpeed(v) end
 })
 
 MainTab:CreateToggle({
     Name = "Noclip Toggle",
     CurrentValue = false,
-    Flag = "Noclip_Toggle",
-    Callback = function(Value)
-        noclipEnabled = Value
-        toggleNoclip()
-    end,
+    Callback = function(v) noclipEnabled = v; toggleNoclip() end
 })
 
 MainTab:CreateToggle({
     Name = "Aimbot (right mouse)",
     CurrentValue = false,
-    Flag = "Aimbot_Toggle",
-    Callback = function(Value) aimbotEnabled = Value end
+    Callback = function(v) aimbotEnabled = v end
 })
 
 MainTab:CreateToggle({
     Name = "Anti AFK",
     CurrentValue = false,
-    Flag = "AntiAFK_Toggle",
-    Callback = function(Value)
-        if Value then
-            if _G.AntiAFKConnection then _G.AntiAFKConnection:Disconnect() end
+    Callback = function(v)
+        if v then
             local vu = game:GetService("VirtualUser")
-            _G.AntiAFKConnection = game:GetService("Players").LocalPlayer.Idled:Connect(function()
+            _G.AntiAFK = localPlayer.Idled:Connect(function()
                 vu:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
                 task.wait(1)
                 vu:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
             end)
         else
-            if _G.AntiAFKConnection then
-                _G.AntiAFKConnection:Disconnect()
-                _G.AntiAFKConnection = nil
+            if _G.AntiAFK then _G.AntiAFK:Disconnect() end
+        end
+    end
+})
+
+-- Visuals Tab
+VisualsTab:CreateColorPicker({
+    Name = "ESP Color",
+    Color = espColor,
+    Callback = function(c)
+        espColor = c
+        for _, player in pairs(Players:GetPlayers()) do
+            local char = player.Character
+            if char then
+                local hl = char:FindFirstChild("WRANNE_ESP")
+                if hl then hl.OutlineColor = c end
             end
         end
     end
 })
 
--- Admin Tab
-local AdminTab = Window:CreateTab("Admin", 4483362458)
-AdminTab:CreateButton({ Name = "Copy Admin Telegram", Callback = function()
-    setclipboard("https://t.me/WranneScripts")
-    Rayfield:Notify({Title = "Copied", Content = "Telegram link copied to clipboard!"})
-end })
-
--- Visuals Tab
-local VisualsTab = Window:CreateTab("Visuals", 4483362458)
-
--- ESP Color
-VisualsTab:CreateColorPicker({
-    Name = "ESP Color",
-    Color = espColor,
-    Flag = "ESP_Color",
-    Callback = function(color)
-        espColor = color
-        for _, hl in pairs(espHighlights) do
-            if hl then hl.OutlineColor = espColor end
-        end
-    end
-})
-
--- Hitbox Expander (ON / OFF)
 VisualsTab:CreateToggle({
     Name = "Hitbox Expander (ON / OFF)",
     CurrentValue = false,
-    Flag = "Hitbox_Toggle",
-    Callback = function(Value)
-        hitboxEnabled = Value
-        updateHitbox()
-    end
+    Callback = function(v) hitboxEnabled = v; updateHitbox() end
 })
 
--- Hitbox Size (ПОЛЕ ДЛЯ ВВОДА)
 VisualsTab:CreateInput({
     Name = "Hitbox Size",
     CurrentValue = "4",
     PlaceholderText = "Enter size (1-1000)",
-    Flag = "Hitbox_Size",
-    Callback = function(Value)
-        local num = tonumber(Value)
+    Callback = function(v)
+        local num = tonumber(v)
         if num and num >= 1 and num <= 1000 then
             setHitboxSize(num)
-            Rayfield:Notify({Title = "Hitbox", Content = "Size set to " .. num})
-        else
-            Rayfield:Notify({Title = "Error", Content = "Please enter a number between 1 and 1000!"})
         end
     end
 })
 
--- X-Ray Vision
 VisualsTab:CreateToggle({
     Name = "X-Ray Vision (Wallhack)",
     CurrentValue = false,
-    Flag = "XRay_Toggle",
-    Callback = function(Value)
-        xrayEnabled = Value
-        updateXRay()
+    Callback = function(v) xrayEnabled = v; updateXRay() end
+})
+
+-- Admin Tab
+AdminTab:CreateButton({
+    Name = "Copy Admin Telegram",
+    Callback = function()
+        setclipboard("https://t.me/WranneScripts")
+        Rayfield:Notify({Title = "Copied", Content = "Telegram link copied!"})
     end
 })
 
