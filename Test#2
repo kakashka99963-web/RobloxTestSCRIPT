@@ -10,7 +10,6 @@ local camera = workspace.CurrentCamera
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local localPlayer = Players.LocalPlayer
-local espList = {}
 local walkSpeed = 16
 local flySpeed = 70
 
@@ -34,13 +33,40 @@ local Window = Rayfield:CreateWindow({
 
 local MainTab = Window:CreateTab("Main", 4483362458)
 
+-- ========== ESP (HIGHLIGHT) ==========
+local espHighlights = {}
+
+local function updateESP(state)
+    for _, otherPlayer in pairs(Players:GetPlayers()) do
+        if otherPlayer ~= localPlayer then
+            local char = otherPlayer.Character
+            if char then
+                local hl = char:FindFirstChild("WRANNE_ESP")
+                if state then
+                    if not hl then
+                        hl = Instance.new("Highlight")
+                        hl.Name = "WRANNE_ESP"
+                        hl.FillColor = Color3.fromRGB(255, 0, 0)
+                        hl.FillTransparency = 0.5
+                        hl.Parent = char
+                        espHighlights[otherPlayer] = hl
+                    end
+                else
+                    if hl then hl:Destroy() end
+                    espHighlights[otherPlayer] = nil
+                end
+            end
+        end
+    end
+end
+
 MainTab:CreateToggle({
     Name = "ESP Toggle",
     CurrentValue = false,
     Flag = "ESP_Toggle",
     Callback = function(Value)
         espEnabled = Value
-        for _, v in pairs(espList) do if v.drawing then v.drawing.Visible = espEnabled end end
+        updateESP(Value)
     end,
 })
 
@@ -110,58 +136,82 @@ MainTab:CreateToggle({
     end,
 })
 
-function createESP(player)
-    if player == localPlayer or espList[player] then return end
-    local text = Drawing.new("Text")
-    text.Size = 14
-    text.Center = true
-    text.Outline = true
-    text.Color = Color3.fromRGB(255, 0, 0)
-    text.Font = 2
-    text.Visible = false
-    espList[player] = { drawing = text, connection = nil }
-    espList[player].connection = RunService.RenderStepped:Connect(function()
-        local char = player.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        local hum = char and char:FindFirstChild("Humanoid")
-        if hrp and hum and hum.Health > 0 then
-            local pos, visible = camera:WorldToViewportPoint(hrp.Position)
-            if visible then
-                text.Position = Vector2.new(pos.X, pos.Y - 20)
-                text.Text = player.Name
-                text.Visible = espEnabled
-            else
-                text.Visible = false
+-- ========== Aimbot ==========
+local Aimbot = {
+    Radius = 120,
+    TargetPart = "Head"
+}
+
+local aimbotEnabled = false
+
+RunService.RenderStepped:Connect(function()
+    local mouseDown = UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
+    if mouseDown and aimbotEnabled then
+        local closest, dist = nil, Aimbot.Radius
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= localPlayer and player.Character then
+                local part = player.Character:FindFirstChild(Aimbot.TargetPart)
+                local hum = player.Character:FindFirstChildOfClass("Humanoid")
+                if part and hum and hum.Health > 0 then
+                    local pos, visible = camera:WorldToViewportPoint(part.Position)
+                    if visible then
+                        local mag = (Vector2.new(pos.X, pos.Y) - UIS:GetMouseLocation()).Magnitude
+                        if mag < dist then
+                            dist = mag
+                            closest = part
+                        end
+                    end
+                end
             end
-        else
-            text.Visible = false
         end
-    end)
-end
-
-function removeESP(player)
-    if espList[player] then
-        espList[player].drawing:Remove()
-        if espList[player].connection then espList[player].connection:Disconnect() end
-        espList[player] = nil
+        if closest then
+            camera.CFrame = CFrame.new(camera.CFrame.Position, closest.Position)
+        end
     end
-end
+end)
 
-for _, player in pairs(Players:GetPlayers()) do createESP(player) end
-Players.PlayerAdded:Connect(createESP)
-Players.PlayerRemoving:Connect(removeESP)
+MainTab:CreateToggle({
+    Name = "Aimbot (right mouse)",
+    CurrentValue = false,
+    Flag = "Aimbot_Toggle",
+    Callback = function(Value)
+        aimbotEnabled = Value
+    end
+})
 
--- ========== ВКЛАДКА ADMIN (изменена) ==========
+MainTab:CreateToggle({
+    Name = "Anti AFK",
+    CurrentValue = false,
+    Flag = "AntiAFK_Toggle",
+    Callback = function(Value)
+        if Value then
+            if _G.AntiAFKConnection then _G.AntiAFKConnection:Disconnect() end
+            local vu = game:GetService("VirtualUser")
+            _G.AntiAFKConnection = game:GetService("Players").LocalPlayer.Idled:Connect(function()
+                vu:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+                task.wait(1)
+                vu:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+            end)
+        else
+            if _G.AntiAFKConnection then
+                _G.AntiAFKConnection:Disconnect()
+                _G.AntiAFKConnection = nil
+            end
+        end
+    end
+})
+
+-- ========== ВКЛАДКА ADMIN ==========
 local AdminTab = Window:CreateTab("Admin", 4483362458)
 AdminTab:CreateButton({ Name = "Copy Admin Telegram", Callback = function()
     setclipboard("https://t.me/WranneScripts")
     Rayfield:Notify({Title = "Copied", Content = "Telegram link copied to clipboard!"})
 end })
 
--- ========== ВКЛАДКА VISUALS (как в том скрипте) ==========
+-- ========== ВКЛАДКА VISUALS ==========
 local VisualsTab = Window:CreateTab("Visuals", 4483362458)
 
--- ESP Color (выбор цвета)
+-- ESP Color
 local espColor = Color3.fromRGB(255, 0, 0)
 VisualsTab:CreateColorPicker({
     Name = "ESP Color",
@@ -169,15 +219,15 @@ VisualsTab:CreateColorPicker({
     Flag = "ESP_Color",
     Callback = function(color)
         espColor = color
-        for _, v in pairs(espList) do
-            if v.drawing then
-                v.drawing.Color = espColor
+        for _, hl in pairs(espHighlights) do
+            if hl then
+                hl.FillColor = espColor
             end
         end
     end
 })
 
--- Hitbox Expander (ON/OFF + размер)
+-- Hitbox Expander
 local hitboxEnabled = false
 local hitboxSize = 4
 local hitboxParts = {}
@@ -275,7 +325,7 @@ VisualsTab:CreateSlider({
     end
 })
 
--- X-Ray Vision (Wallhack)
+-- X-Ray Vision
 local xrayEnabled = false
 local function updateXRay(state)
     for _, part in pairs(workspace:GetDescendants()) do
@@ -309,100 +359,33 @@ VisualsTab:CreateToggle({
     end
 })
 
--- ========== АИМБОТ ==========
-local Aimbot = {
-    Radius = 120,
-    TargetPart = "Head"
-}
-
-local TracerLines = {}
-
-function updateViewTracers()
-    for _, line in pairs(TracerLines) do line:Remove() end
-    table.clear(TracerLines)
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local line = Drawing.new("Line")
-            line.Color = Color3.fromRGB(255, 0, 255)
-            line.Thickness = 1
-            line.Transparency = 1
-            line.Visible = true
-            TracerLines[player] = line
-        end
+-- Следим за добавлением/удалением игроков для ESP и Hitbox
+Players.PlayerAdded:Connect(function(player)
+    if espEnabled then
+        task.wait(0.5)
+        updateESP(true)
     end
-end
-updateViewTracers()
-Players.PlayerAdded:Connect(updateViewTracers)
-Players.PlayerRemoving:Connect(updateViewTracers)
-
-local aimbotEnabled = false
-
-RunService.RenderStepped:Connect(function()
-    local mouseDown = UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
-    if mouseDown and aimbotEnabled then
-        local closest, dist = nil, Aimbot.Radius
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= localPlayer and player.Character then
-                local part = player.Character:FindFirstChild(Aimbot.TargetPart)
-                local hum = player.Character:FindFirstChildOfClass("Humanoid")
-                if part and hum and hum.Health > 0 then
-                    local pos, visible = camera:WorldToViewportPoint(part.Position)
-                    if visible then
-                        local mag = (Vector2.new(pos.X, pos.Y) - UIS:GetMouseLocation()).Magnitude
-                        if mag < dist then
-                            dist = mag
-                            closest = part
-                        end
-                    end
-                end
-            end
-        end
-        if closest then
-            camera.CFrame = CFrame.new(camera.CFrame.Position, closest.Position)
-        end
-    end
-
-    for player, line in pairs(TracerLines) do
-        local char = player.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            local screenPos, visible = camera:WorldToViewportPoint(hrp.Position)
-            line.From = Vector2.new(screenPos.X, screenPos.Y)
-            line.To = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
-            line.Visible = visible and TracerLines[player].Visible
-        else
-            line.Visible = false
-        end
+    if hitboxEnabled then
+        task.wait(0.5)
+        updateHitbox()
     end
 end)
 
-MainTab:CreateToggle({
-    Name = "Aimbot (right mouse)",
-    CurrentValue = false,
-    Flag = "Aimbot_Toggle",
-    Callback = function(Value)
-        aimbotEnabled = Value
+Players.PlayerRemoving:Connect(function(player)
+    if espHighlights[player] then
+        espHighlights[player]:Destroy()
+        espHighlights[player] = nil
     end
-})
+end)
 
-MainTab:CreateToggle({
-    Name = "Anti AFK",
-    CurrentValue = false,
-    Flag = "AntiAFK_Toggle",
-    Callback = function(Value)
-        if Value then
-            if _G.AntiAFKConnection then _G.AntiAFKConnection:Disconnect() end
-            local vu = game:GetService("VirtualUser")
-            _G.AntiAFKConnection = game:GetService("Players").LocalPlayer.Idled:Connect(function()
-                vu:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
-                task.wait(1)
-                vu:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
-            end)
-        else
-            if _G.AntiAFKConnection then
-                _G.AntiAFKConnection:Disconnect()
-                _G.AntiAFKConnection = nil
-            end
-        end
-    end
-})
+-- При перерождении
+localPlayer.CharacterAdded:Connect(function(char)
+    task.wait(0.5)
+    setSpeed(walkSpeed)
+    setJump(jumpValue)
+    if espEnabled then updateESP(true) end
+    if hitboxEnabled then updateHitbox() end
+    if xrayEnabled then updateXRay(true) end
+end)
+
+print("WRANNE HUB загружен! Нажми Insert для открытия меню")
