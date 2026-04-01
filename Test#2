@@ -48,8 +48,9 @@ local function updateESP()
     end
 end
 
--- ========== HITBOX EXPANDER (НЕВИДИМАЯ ЗОНА) ==========
+-- ========== HITBOX EXPANDER (СФЕРА, А НЕ КУБ) ==========
 local function updateHitbox()
+    -- Удаляем старые хитбоксы
     for _, data in pairs(hitboxParts) do
         if data.part then data.part:Destroy() end
         if data.connection then data.connection:Disconnect() end
@@ -62,30 +63,43 @@ local function updateHitbox()
         if otherPlayer ~= localPlayer then
             local char = otherPlayer.Character
             if char then
-                local rootPart = char:FindFirstChild("HumanoidRootPart")
-                if rootPart then
+                -- Ищем часть тела для привязки
+                local attachPart = char:FindFirstChild("HumanoidRootPart") or 
+                                   char:FindFirstChild("UpperTorso") or 
+                                   char:FindFirstChild("LowerTorso") or 
+                                   char:FindFirstChild("Torso")
+                
+                if attachPart then
+                    -- СОЗДАЁМ СФЕРУ (Ball) вместо куба
                     local hitboxPart = Instance.new("Part")
+                    hitboxPart.Shape = Enum.PartType.Ball  -- ← ГЛАВНОЕ! СФЕРА!
                     hitboxPart.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
-                    hitboxPart.Transparency = 1
+                    hitboxPart.Transparency = 1  -- полностью невидимая
                     hitboxPart.CanCollide = false
                     hitboxPart.Anchored = false
                     hitboxPart.Name = "WRANNE_Hitbox"
                     hitboxPart.Parent = char
                     
+                    -- Привязываем к части тела
                     local weld = Instance.new("Weld")
-                    weld.Part0 = rootPart
+                    weld.Part0 = attachPart
                     weld.Part1 = hitboxPart
                     weld.C0 = CFrame.new(0, 0, 0)
                     weld.Parent = hitboxPart
                     
-                    table.insert(hitboxParts, {part = hitboxPart})
+                    table.insert(hitboxParts, {part = hitboxPart, player = otherPlayer})
                     
+                    -- Следим за перерождением
                     local conn = otherPlayer.CharacterAdded:Connect(function(newChar)
                         task.wait(0.5)
                         if hitboxEnabled then
-                            local newRoot = newChar:FindFirstChild("HumanoidRootPart")
-                            if newRoot then
+                            local newAttach = newChar:FindFirstChild("HumanoidRootPart") or 
+                                              newChar:FindFirstChild("UpperTorso") or 
+                                              newChar:FindFirstChild("LowerTorso") or 
+                                              newChar:FindFirstChild("Torso")
+                            if newAttach then
                                 local newHitbox = Instance.new("Part")
+                                newHitbox.Shape = Enum.PartType.Ball  -- СФЕРА
                                 newHitbox.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
                                 newHitbox.Transparency = 1
                                 newHitbox.CanCollide = false
@@ -93,12 +107,12 @@ local function updateHitbox()
                                 newHitbox.Parent = newChar
                                 
                                 local newWeld = Instance.new("Weld")
-                                newWeld.Part0 = newRoot
+                                newWeld.Part0 = newAttach
                                 newWeld.Part1 = newHitbox
                                 newWeld.C0 = CFrame.new(0, 0, 0)
                                 newWeld.Parent = newHitbox
                                 
-                                table.insert(hitboxParts, {part = newHitbox})
+                                table.insert(hitboxParts, {part = newHitbox, player = otherPlayer})
                             end
                         end
                     end)
@@ -123,7 +137,7 @@ end
 -- ========== X-RAY ==========
 local function updateXRay()
     for _, part in pairs(workspace:GetDescendants()) do
-        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" and part.Name ~= "WRANNE_Hitbox" then
+        if part:IsA("BasePart") and part.Name ~= "WRANNE_Hitbox" then
             if xrayEnabled then
                 if not part:GetAttribute("OriginalMaterial") then
                     part:SetAttribute("OriginalMaterial", part.Material)
@@ -147,15 +161,19 @@ end
 local function setSpeed(speed)
     walkSpeed = speed
     local char = localPlayer.Character
-    if char and char:FindFirstChild("Humanoid") then
-        char.Humanoid.WalkSpeed = speed
+    if char then
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then hum.WalkSpeed = speed end
     end
 end
 
 local function toggleFly()
     local char = localPlayer.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-    local hrp = char.HumanoidRootPart
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart") or 
+                 char:FindFirstChild("UpperTorso") or 
+                 char:FindFirstChild("LowerTorso")
+    if not hrp then return end
     
     if flyConn then flyConn:Disconnect() end
     if velocity then velocity:Destroy() end
@@ -186,7 +204,9 @@ local function toggleNoclip()
         noclipConn = RunService.Stepped:Connect(function()
             if localPlayer.Character then
                 for _, part in ipairs(localPlayer.Character:GetDescendants()) do
-                    if part:IsA("BasePart") then part.CanCollide = false end
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
                 end
             end
         end)
@@ -365,7 +385,7 @@ VisualsTab:CreateToggle({
     end
 })
 
--- Hitbox Size (ПОЛЕ ДЛЯ ВВОДА, как в GOLDEN HUB)
+-- Hitbox Size (ПОЛЕ ДЛЯ ВВОДА)
 VisualsTab:CreateInput({
     Name = "Hitbox Size",
     CurrentValue = "4",
@@ -375,6 +395,7 @@ VisualsTab:CreateInput({
         local num = tonumber(Value)
         if num and num >= 1 and num <= 1000 then
             setHitboxSize(num)
+            Rayfield:Notify({Title = "Hitbox", Content = "Size set to " .. num})
         else
             Rayfield:Notify({Title = "Error", Content = "Please enter a number between 1 and 1000!"})
         end
