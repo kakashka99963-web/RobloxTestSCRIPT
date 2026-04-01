@@ -151,20 +151,165 @@ for _, player in pairs(Players:GetPlayers()) do createESP(player) end
 Players.PlayerAdded:Connect(createESP)
 Players.PlayerRemoving:Connect(removeESP)
 
-local GardenTab = Window:CreateTab("Grow a Garden", 4483362458)
-GardenTab:CreateButton({ Name = "Load PC Script", Callback = function()
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/AhmadV99/Speed-Hub-X/main/Speed%20Hub%20X.lua", true))()
-end })
-GardenTab:CreateButton({ Name = "Load Mobile Script", Callback = function()
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/AhmadV99/Speed-Hub-X/main/Speed%20Hub%20X.lua", true))()
-end })
-
+-- ========== ВКЛАДКА ADMIN (изменена) ==========
 local AdminTab = Window:CreateTab("Admin", 4483362458)
-AdminTab:CreateButton({ Name = "Copy Admin Facebook", Callback = function()
-    setclipboard("https://www.facebook.com/nguyenvinhtriowo")
-    Rayfield:Notify({Title = "Copied", Content = "Link copied to clipboard."})
+AdminTab:CreateButton({ Name = "Copy Admin Telegram", Callback = function()
+    setclipboard("https://t.me/WranneScripts")
+    Rayfield:Notify({Title = "Copied", Content = "Telegram link copied to clipboard!"})
 end })
 
+-- ========== ВКЛАДКА VISUALS (как в том скрипте) ==========
+local VisualsTab = Window:CreateTab("Visuals", 4483362458)
+
+-- ESP Color (выбор цвета)
+local espColor = Color3.fromRGB(255, 0, 0)
+VisualsTab:CreateColorPicker({
+    Name = "ESP Color",
+    Color = espColor,
+    Flag = "ESP_Color",
+    Callback = function(color)
+        espColor = color
+        for _, v in pairs(espList) do
+            if v.drawing then
+                v.drawing.Color = espColor
+            end
+        end
+    end
+})
+
+-- Hitbox Expander (ON/OFF + размер)
+local hitboxEnabled = false
+local hitboxSize = 4
+local hitboxParts = {}
+
+local function updateHitbox()
+    for _, data in pairs(hitboxParts) do
+        if data.part then data.part:Destroy() end
+        if data.connection then data.connection:Disconnect() end
+    end
+    hitboxParts = {}
+    
+    if not hitboxEnabled then return end
+    
+    for _, otherPlayer in pairs(Players:GetPlayers()) do
+        if otherPlayer ~= localPlayer then
+            local char = otherPlayer.Character
+            if char then
+                local rootPart = char:FindFirstChild("HumanoidRootPart")
+                if rootPart then
+                    local hitboxPart = Instance.new("Part")
+                    hitboxPart.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
+                    hitboxPart.Transparency = 1
+                    hitboxPart.CanCollide = false
+                    hitboxPart.Anchored = false
+                    hitboxPart.Name = "WRANNE_Hitbox"
+                    hitboxPart.Parent = char
+                    
+                    local weld = Instance.new("Weld")
+                    weld.Part0 = rootPart
+                    weld.Part1 = hitboxPart
+                    weld.C0 = CFrame.new(0, 0, 0)
+                    weld.Parent = hitboxPart
+                    
+                    table.insert(hitboxParts, {part = hitboxPart})
+                    
+                    local conn = otherPlayer.CharacterAdded:Connect(function(newChar)
+                        task.wait(0.5)
+                        if hitboxEnabled then
+                            local newRoot = newChar:FindFirstChild("HumanoidRootPart")
+                            if newRoot then
+                                local newHitbox = Instance.new("Part")
+                                newHitbox.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
+                                newHitbox.Transparency = 1
+                                newHitbox.CanCollide = false
+                                newHitbox.Name = "WRANNE_Hitbox"
+                                newHitbox.Parent = newChar
+                                
+                                local newWeld = Instance.new("Weld")
+                                newWeld.Part0 = newRoot
+                                newWeld.Part1 = newHitbox
+                                newWeld.C0 = CFrame.new(0, 0, 0)
+                                newWeld.Parent = newHitbox
+                                
+                                table.insert(hitboxParts, {part = newHitbox})
+                            end
+                        end
+                    end)
+                    table.insert(hitboxParts, {connection = conn})
+                end
+            end
+        end
+    end
+end
+
+local function setHitboxSize(size)
+    hitboxSize = size
+    if hitboxEnabled then
+        for _, data in pairs(hitboxParts) do
+            if data.part then
+                data.part.Size = Vector3.new(size, size, size)
+            end
+        end
+    end
+end
+
+VisualsTab:CreateToggle({
+    Name = "Hitbox Expander (ON / OFF)",
+    CurrentValue = false,
+    Flag = "Hitbox_Toggle",
+    Callback = function(Value)
+        hitboxEnabled = Value
+        updateHitbox()
+    end
+})
+
+VisualsTab:CreateSlider({
+    Name = "Hitbox Size",
+    Range = {1, 1000},
+    Increment = 1,
+    Suffix = "Size",
+    CurrentValue = 4,
+    Flag = "Hitbox_Size",
+    Callback = function(Value)
+        setHitboxSize(Value)
+    end
+})
+
+-- X-Ray Vision (Wallhack)
+local xrayEnabled = false
+local function updateXRay(state)
+    for _, part in pairs(workspace:GetDescendants()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" and part.Name ~= "WRANNE_Hitbox" then
+            if state then
+                if not part:GetAttribute("OriginalMaterial") then
+                    part:SetAttribute("OriginalMaterial", part.Material)
+                    part:SetAttribute("OriginalTransparency", part.Transparency)
+                end
+                part.Material = Enum.Material.Neon
+                part.Transparency = 0.3
+            else
+                local mat = part:GetAttribute("OriginalMaterial")
+                local trans = part:GetAttribute("OriginalTransparency")
+                if mat then
+                    part.Material = mat
+                    part.Transparency = trans or 0
+                end
+            end
+        end
+    end
+end
+
+VisualsTab:CreateToggle({
+    Name = "X-Ray Vision (Wallhack)",
+    CurrentValue = false,
+    Flag = "XRay_Toggle",
+    Callback = function(Value)
+        xrayEnabled = Value
+        updateXRay(Value)
+    end
+})
+
+-- ========== АИМБОТ ==========
 local Aimbot = {
     Radius = 120,
     TargetPart = "Head"
@@ -194,7 +339,6 @@ local aimbotEnabled = false
 
 RunService.RenderStepped:Connect(function()
     local mouseDown = UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
-    local target = nil
     if mouseDown and aimbotEnabled then
         local closest, dist = nil, Aimbot.Radius
         for _, player in pairs(Players:GetPlayers()) do
